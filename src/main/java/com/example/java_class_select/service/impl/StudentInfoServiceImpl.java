@@ -107,30 +107,26 @@ public class StudentInfoServiceImpl implements StudentInfoService {
 
 					// 檢查是否衝堂
 					// 該DB的上下課時間都是 String，所以先轉數字
-					int stEndTime = Integer.parseInt(cuInfo.getCourseEndTime());
-					String time1, time2, time3;
+					// cuInfo是被比較值，也就是第一個選的課程
+					int cuInfoEndTime = Integer.parseInt(cuInfo.getCourseEndTime());
+					int cuInfoStartTime = Integer.parseInt(cuInfo.getCourseStartTime());
+					// 比較值
+					int cuInfoTimeStart = Integer.parseInt(cuInfoTime.getCourseStartTime());
+					int cuInfoTimeEnd = Integer.parseInt(cuInfo.getCourseEndTime());
 
-					// 加減完再轉回字串，因為最早的課是0800開始，最多上三個小時
-					// 結束時間是1100，故 0800~1100 期間不得選其他課否則會相衝
-					// 由1100往回推會有小於1000的整數型態 900、800
-					// 轉為字串時，最前面補上 0 才能與 DB 中資料比較
-					if (stEndTime > 1000) {
-						time1 = Integer.toString((stEndTime - 100));
-						time2 = "0" + Integer.toString((stEndTime - 200));
-						time3 = "0" + Integer.toString((stEndTime - 300));
-					} else {
-						time1 = Integer.toString((stEndTime - 100));
-						time2 = Integer.toString((stEndTime - 200));
-						time3 = Integer.toString((stEndTime - 300));
-					}
+					// 因為最早的課是0800開始，最多上三個小時
+					// 結束時間是1100，故 0800~1100 期間不得選其他課否則會相
+					// 小於1000的時間會變成 900、800
+					// 因為已轉整數，故使用減法相互比較
+					
 					// 先比較星期
 					if (cuInfo.getDay().equals(cuInfoTime.getDay())) {
 						// 再比較上課時間
-						if (cuInfo.getCourseStartTime().equals(cuInfoTime.getCourseStartTime())
-								|| cuInfo.getCourseEndTime().equals(cuInfoTime.getCourseStartTime())
-								|| time1.equals(cuInfoTime.getCourseStartTime())
-								|| time2.equals(cuInfoTime.getCourseStartTime())
-								|| time3.equals(cuInfoTime.getCourseStartTime())) {
+						if (cuInfoStartTime == cuInfoTimeStart || cuInfoEndTime == cuInfoTimeStart
+								|| cuInfoEndTime == cuInfoTimeEnd 
+								|| (cuInfoEndTime - 100) == cuInfoTimeStart
+								|| (cuInfoEndTime - 200) == cuInfoTimeStart
+								|| (cuInfoEndTime - 300) == cuInfoTimeStart) {
 							return new StudentInfoResponse("上課時間相衝");
 						}
 					}
@@ -141,7 +137,7 @@ public class StudentInfoServiceImpl implements StudentInfoService {
 				// 若該課堂目前都沒人選，則直接加入
 				if (!StringUtils.hasText(cuInfo.getPersons())) {
 					cuInfo.setPersons(stInfo.getStudentId());
-					courseInfoDao.save(cuInfo);
+					
 				} else {
 					// 若有人選課則逐一取出來供判斷是否超出上限
 					for (String item2 : cuInfo.getPersons().split(",")) {
@@ -149,7 +145,7 @@ public class StudentInfoServiceImpl implements StudentInfoService {
 						cuPersonsList.add(item2);
 
 						// 每門課修課人數不能超過三人
-						if (cuPersonsList.size() > 3) {
+						if (cuPersonsList.size() >= 3) {
 							return new StudentInfoResponse("該課程人數已滿");
 						}
 					}
@@ -157,7 +153,7 @@ public class StudentInfoServiceImpl implements StudentInfoService {
 					cuPersonsList.add(stInfo.getStudentId());
 					String cuJoinPersons = String.join(",", cuPersonsList);
 					cuInfo.setPersons(cuJoinPersons);
-					courseInfoDao.save(cuInfo);
+					
 				}
 
 				// 判斷學生目前的學分，確認可以選課才對學分進行更動
@@ -175,6 +171,9 @@ public class StudentInfoServiceImpl implements StudentInfoService {
 				}
 				// 總學分沒超過 10 則調整學生的學分
 				stInfo.setCredits(totalCredits);
+				
+				// 學分也沒問題才儲存課堂人數資料
+				courseInfoDao.save(cuInfo);
 			}
 			// 全部比較完沒問題則確認可以選課
 			stInfo.setCourseId(String.join(",", cuIdList));
@@ -220,163 +219,269 @@ public class StudentInfoServiceImpl implements StudentInfoService {
 	}
 
 //=================================================================================================
-	// 退選課程 歐虧
+	// 加退選課程 歐虧
 	@Override
-	public StudentInfoResponse exitCourse(StudentInfoRequest studentRequest) {
-		StudentInfo stInfo = getStudentInfo(studentRequest);
-		CourseInfo cuInfo = getCourseInfo(studentRequest.getCourseId());
+	public StudentInfoResponse courseExitOrJoin(StudentInfoRequest studentRequest) {
+		String type = studentRequest.getType();
+		List<String> typeList = new ArrayList<>();
+		typeList.add("join");
+		typeList.add("exit");
+		
+		// 必須包含加退選的關鍵字
+		if (typeList.contains(type)) {
+			// 退選功能
+			if (type.equals("exit")) {
+				StudentInfo stInfo = getStudentInfo(studentRequest);
+				CourseInfo cuInfo = getCourseInfo(studentRequest.getCourseId());
 
-		// 防呆，避免任何一個 ID 是空值
-		if (!StringUtils.hasText(stInfo.getStudentId()) || !StringUtils.hasText(cuInfo.getCourseId())) {
-			return new StudentInfoResponse("ID格式錯誤");
-		}
+				// 防呆，避免任何一個 ID 是空值
+				if (!StringUtils.hasText(stInfo.getStudentId()) || !StringUtils.hasText(cuInfo.getCourseId())) {
+					return new StudentInfoResponse("ID格式錯誤");
+				}
 
-		// 把學生已選課的資訊取出
-		String stInfoCourseId = stInfo.getCourseId();
-		List<String> stCourseIdList = new ArrayList<>();
-		List<String> stCourseNameList = new ArrayList<>();
-		// 用","區分並逐一放入 List
-		for (String item : stInfoCourseId.split(",")) {
-			Optional<CourseInfo> cuName = courseInfoDao.findById(item);
-			CourseInfo cuNameGet = cuName.get();
-			stCourseIdList.add(item);
-			stCourseNameList.add(cuNameGet.getCourseName());
-		}
+				// 把學生已選課的資訊取出
+				String stInfoCourseId = stInfo.getCourseId();
+				List<String> stCourseIdList = new ArrayList<>();
+				List<String> stCourseNameList = new ArrayList<>();
+				// 用","區分並逐一放入 List
+				for (String item : stInfoCourseId.split(",")) {
+					Optional<CourseInfo> cuName = courseInfoDao.findById(item);
+					CourseInfo cuNameGet = cuName.get();
+					stCourseIdList.add(item);
+					stCourseNameList.add(cuNameGet.getCourseName());
+				}
 
-		// 防呆，檢查欲退選的課是否已選上
-		if (!stCourseIdList.contains(cuInfo.getCourseId())) {
-			return new StudentInfoResponse("並無選擇該課程");
-		}
+				// 防呆，檢查欲退選的課是否已選上
+				if (!stCourseIdList.contains(cuInfo.getCourseId())) {
+					return new StudentInfoResponse("並無選擇該課程");
+				}
 
-		// 課程ID 與名稱分別放入對應的 List 後執行退選，再使用 join 方式變回字串
-		stCourseIdList.remove(cuInfo.getCourseId());
-		stCourseNameList.remove(cuInfo.getCourseName());
+				// 課程ID 與名稱分別放入對應的 List 後執行退選，再使用 join 方式變回字串
+				stCourseIdList.remove(cuInfo.getCourseId());
+				stCourseNameList.remove(cuInfo.getCourseName());
 
-		// 退選後學分也要跟著變動
-		int totalCredits = 0;
-		totalCredits = (stInfo.getCredits() - cuInfo.getCredits());
+				// 退選後學分也要跟著變動
+				int totalCredits = 0;
+				totalCredits = (stInfo.getCredits() - cuInfo.getCredits());
 
-		String stJoinCourseId = String.join(",", stCourseIdList);
-		String stJoinCourseName = String.join(",", stCourseNameList);
-		stInfo.setCourseId(stJoinCourseId);
-		stInfo.setCourseName(stJoinCourseName);
-		stInfo.setCredits(totalCredits);
-		studentInfoDao.save(stInfo);
+				String stJoinCourseId = String.join(",", stCourseIdList);
+				String stJoinCourseName = String.join(",", stCourseNameList);
+				stInfo.setCourseId(stJoinCourseId);
+				stInfo.setCourseName(stJoinCourseName);
+				stInfo.setCredits(totalCredits);
+				studentInfoDao.save(stInfo);
 
-		List<String> cuInfoPersons = new ArrayList<>();
-		for (String item : cuInfo.getPersons().split(",")) {
-			if (!item.equals(stInfo.getStudentId())) {
-				cuInfoPersons.add(item);
-			}
-		}
-		cuInfo.setPersons(String.join(",", cuInfoPersons));
-		courseInfoDao.save(cuInfo);
-		return new StudentInfoResponse(stInfo, "退選成功");
+				List<String> cuInfoPersons = new ArrayList<>();
+				for (String item : cuInfo.getPersons().split(",")) {
+					if (!item.equals(stInfo.getStudentId())) {
+						cuInfoPersons.add(item);
+					}
+				}
+				cuInfo.setPersons(String.join(",", cuInfoPersons));
+				courseInfoDao.save(cuInfo);
+				return new StudentInfoResponse(stInfo, "退選成功");
+			} // 退選的尾巴
 
+			// 加選
+			if (type.equals("join")) {
+				StudentInfo stInfo = getStudentInfo(studentRequest);
+				String stInfoCourseId = stInfo.getCourseId();
+				List<String> cuIdList = studentRequest.getCourseIdList();
+				// DB取出來的ID是"String"，建立一個可以存放的List
+				List<String> stCourseIdList = new ArrayList<>();
+				List<String> stCourseNameList = new ArrayList<>();
+				// 判斷選課時是否已選該課程或是已具有相同課程名稱
+				for (String item : stInfoCourseId.split(",")) {
+					// 取得目前學生已選課ID的相對應名稱
+
+					CourseInfo cuNameGet = getCourseInfo(item);
+
+					// 若已選課，則需要比對是否有重複選到相同課程
+					for (int i = 0; i < cuIdList.size(); i++) {
+						CourseInfo cuInfo = getCourseInfo(cuIdList.get(i));
+
+						if (item.equals(cuIdList.get(i))) {
+							return new StudentInfoResponse("已選擇該課程");
+						}
+
+						// 檢查已選課程中是否包含相同課程名稱
+						if (cuNameGet.getCourseName().equals(cuInfo.getCourseName())) {
+							return new StudentInfoResponse("已選課中包含相同課程名稱");
+						}
+
+						// 檢查選課時間是否與已選課相衝
+						int stEndTime = Integer.parseInt(cuNameGet.getCourseEndTime());
+						int stStartTime = Integer.parseInt(cuNameGet.getCourseStartTime());
+						int cuInfoEndTime = Integer.parseInt(cuInfo.getCourseEndTime());
+						int cuInfoStartTime = Integer.parseInt(cuInfo.getCourseStartTime());
+					
+						if (cuInfo.getDay().equals(cuNameGet.getDay())) {
+							if(cuInfoStartTime == stStartTime || cuInfoEndTime == stStartTime 
+									||cuInfoStartTime == stEndTime ||cuInfoStartTime == (stEndTime-100)
+									||cuInfoStartTime == (stEndTime-200) || cuInfoStartTime == (stEndTime-300)) {
+								return new StudentInfoResponse("上課時間相衝");
+							}
+						}
+
+						// for 迴圈的尾巴
+					}
+					stCourseIdList.add(item);
+					stCourseNameList.add(cuNameGet.getCourseName());
+					// foreach 迴圈的尾巴
+				}
+				for (String names : cuIdList) {	
+					CourseInfo cuInfo = getCourseInfo(names);
+					// 檢查已選課程選修人數是否已滿
+					List<String> cuPersonsList = new ArrayList<>();
+					if (!StringUtils.hasText(cuInfo.getPersons())) {
+						cuInfo.setPersons(stInfo.getStudentId());
+//						courseInfoDao.save(cuInfo);
+					} else {
+						for (String item2 : cuInfo.getPersons().split(",")) {
+
+							cuPersonsList.add(item2);
+
+							// 每門課修課人數不能超過三人
+							if (cuPersonsList.size() > 3) {
+								return new StudentInfoResponse("該課程人數已滿");
+							}
+						}
+						cuPersonsList.add(stInfo.getStudentId());
+						String cuJoinPersons = String.join(",", cuPersonsList);
+						cuInfo.setPersons(cuJoinPersons);
+						
+					}
+
+					// 判斷學生目前的學分，確認可以選課學分才增加
+					// 先取得目前學生的學分
+					int totalCredits = 0;
+					totalCredits = stInfo.getCredits();
+
+					// 學生目前的學分加上該選課的學分
+					totalCredits += cuInfo.getCredits();
+					// 總學分不能超過10
+					if (totalCredits > 10) {
+						return new StudentInfoResponse("已超出學分上限");
+					}
+					// 總學分沒超過 10 則調整學生的學分
+					stInfo.setCredits(totalCredits);
+
+					stCourseIdList.add(names);
+					stCourseNameList.add(courseInfoDao.findById(names).get().getCourseName());
+					courseInfoDao.save(cuInfo);
+				}
+				
+				stInfo.setCourseId(String.join(",", stCourseIdList));
+				stInfo.setCourseName(String.join(",", stCourseNameList));
+				studentInfoDao.save(stInfo);
+				return new StudentInfoResponse(stInfo, "選課成功");
+			} // 加選的尾巴
+		}// 判斷是否包含關鍵字的尾巴
+		return new StudentInfoResponse("要加選 (join) 還是退選 (exit) ?");
 	}
 
 //=================================================================================================
-	// 加選 歐虧
-	@Override
-	public StudentInfoResponse joinCourse(StudentInfoRequest studentRequest) {
-		StudentInfo stInfo = getStudentInfo(studentRequest);
-		String stInfoCourseId = stInfo.getCourseId();
-		List<String> cuIdList = studentRequest.getCourseIdList();
-		// DB取出來的ID是"String"，建立一個可以存放的List
-		List<String> stCourseIdList = new ArrayList<>();
-		List<String> stCourseNameList = new ArrayList<>();
-		// 判斷選課時是否已選該課程或是已具有相同課程名稱
-		for (String item : stInfoCourseId.split(",")) {
-			// 取得目前學生已選課ID的相對應名稱
-
-			CourseInfo cuNameGet = getCourseInfo(item);
-
-			// 若已選課，則需要比對是否有重複選到相同課程
-			for (int i = 0; i < cuIdList.size(); i++) {
-				CourseInfo cuInfo = getCourseInfo(cuIdList.get(i));
-
-				if (item.equals(cuIdList.get(i))) {
-					return new StudentInfoResponse("已選擇該課程");
-				}
-
-				// 檢查已選課程中是否包含相同課程名稱
-
-				if (cuNameGet.getCourseName().equals(cuInfo.getCourseName())) {
-					return new StudentInfoResponse("已選課中包含相同課程名稱");
-				}
-
-				// 檢查選課時間是否與已選課相衝
-				int stEndTime = Integer.parseInt(cuNameGet.getCourseEndTime());
-				String time1, time2, time3;
-				if (stEndTime > 1000) {
-					time1 = "0" + Integer.toString((stEndTime - 100));
-					time2 = "0" + Integer.toString((stEndTime - 200));
-					time3 = "0" + Integer.toString((stEndTime - 300));
-				} else {
-					time1 = Integer.toString((stEndTime - 100));
-					time2 = Integer.toString((stEndTime - 200));
-					time3 = Integer.toString((stEndTime - 300));
-				}
-				if (cuInfo.getDay().equals(cuNameGet.getDay())) {
-					if (cuInfo.getCourseStartTime().equals(cuNameGet.getCourseStartTime())
-							|| cuInfo.getCourseEndTime().equals(cuNameGet.getCourseStartTime())
-							|| cuInfo.getCourseStartTime().equals(time1) || cuInfo.getCourseStartTime().equals(time2)
-							|| cuInfo.getCourseStartTime().equals(time3)) {
-						return new StudentInfoResponse("上課時間相衝");
-					}
-				}
-
-				// for 迴圈的尾巴
-			}
-			stCourseIdList.add(item);
-			stCourseNameList.add(cuNameGet.getCourseName());
-			// foreach 迴圈的尾巴
-		}
-		for (String names : cuIdList) {
-			CourseInfo cuInfo = getCourseInfo(names);
-			// 檢查已選課程選修人數是否已滿
-			List<String> cuPersonsList = new ArrayList<>();
-			if (!StringUtils.hasText(cuInfo.getPersons())) {
-				cuInfo.setPersons(stInfo.getStudentId());
-				courseInfoDao.save(cuInfo);
-			} else {
-				for (String item2 : cuInfo.getPersons().split(",")) {
-
-					cuPersonsList.add(item2);
-
-					// 每門課修課人數不能超過三人
-					if (cuPersonsList.size() > 3) {
-						return new StudentInfoResponse("該課程人數已滿");
-					}
-				}
-				cuPersonsList.add(stInfo.getStudentId());
-				String cuJoinPersons = String.join(",", cuPersonsList);
-				cuInfo.setPersons(cuJoinPersons);
-				courseInfoDao.save(cuInfo);
-			}
-
-			// 判斷學生目前的學分，確認可以選課學分才增加
-			// 先取得目前學生的學分
-			int totalCredits = 0;
-			totalCredits = stInfo.getCredits();
-
-			// 學生目前的學分加上該選課的學分
-			totalCredits += cuInfo.getCredits();
-			// 總學分不能超過10
-			if (totalCredits > 10) {
-				return new StudentInfoResponse("已超出學分上限");
-			}
-			// 總學分沒超過 10 則調整學生的學分
-			stInfo.setCredits(totalCredits);
-
-			stCourseIdList.add(names);
-			stCourseNameList.add(courseInfoDao.findById(names).get().getCourseName());
-		}
-		stInfo.setCourseId(String.join(",", stCourseIdList));
-		stInfo.setCourseName(String.join(",", stCourseNameList));
-		studentInfoDao.save(stInfo);
-		return new StudentInfoResponse(stInfo, "選課成功");
-	}
+//	// 加選 歐虧
+//	@Override
+//	public StudentInfoResponse joinCourse(StudentInfoRequest studentRequest) {
+//		StudentInfo stInfo = getStudentInfo(studentRequest);
+//		String stInfoCourseId = stInfo.getCourseId();
+//		List<String> cuIdList = studentRequest.getCourseIdList();
+//		// DB取出來的ID是"String"，建立一個可以存放的List
+//		List<String> stCourseIdList = new ArrayList<>();
+//		List<String> stCourseNameList = new ArrayList<>();
+//		// 判斷選課時是否已選該課程或是已具有相同課程名稱
+//		for (String item : stInfoCourseId.split(",")) {
+//			// 取得目前學生已選課ID的相對應名稱
+//
+//			CourseInfo cuNameGet = getCourseInfo(item);
+//
+//			// 若已選課，則需要比對是否有重複選到相同課程
+//			for (int i = 0; i < cuIdList.size(); i++) {
+//				CourseInfo cuInfo = getCourseInfo(cuIdList.get(i));
+//
+//				if (item.equals(cuIdList.get(i))) {
+//					return new StudentInfoResponse("已選擇該課程");
+//				}
+//
+//				// 檢查已選課程中是否包含相同課程名稱
+//
+//				if (cuNameGet.getCourseName().equals(cuInfo.getCourseName())) {
+//					return new StudentInfoResponse("已選課中包含相同課程名稱");
+//				}
+//
+//				// 檢查選課時間是否與已選課相衝
+//				int stEndTime = Integer.parseInt(cuNameGet.getCourseEndTime());
+//				String time1, time2, time3;
+//				if (stEndTime > 1000) {
+//					time1 = "0" + Integer.toString((stEndTime - 100));
+//					time2 = "0" + Integer.toString((stEndTime - 200));
+//					time3 = "0" + Integer.toString((stEndTime - 300));
+//				} else {
+//					time1 = Integer.toString((stEndTime - 100));
+//					time2 = Integer.toString((stEndTime - 200));
+//					time3 = Integer.toString((stEndTime - 300));
+//				}
+//				if (cuInfo.getDay().equals(cuNameGet.getDay())) {
+//					if (cuInfo.getCourseStartTime().equals(cuNameGet.getCourseStartTime())
+//							|| cuInfo.getCourseEndTime().equals(cuNameGet.getCourseStartTime())
+//							|| cuInfo.getCourseStartTime().equals(time1) || cuInfo.getCourseStartTime().equals(time2)
+//							|| cuInfo.getCourseStartTime().equals(time3)) {
+//						return new StudentInfoResponse("上課時間相衝");
+//					}
+//				}
+//
+//				// for 迴圈的尾巴
+//			}
+//			stCourseIdList.add(item);
+//			stCourseNameList.add(cuNameGet.getCourseName());
+//			// foreach 迴圈的尾巴
+//		}
+//		for (String names : cuIdList) {
+//			CourseInfo cuInfo = getCourseInfo(names);
+//			// 檢查已選課程選修人數是否已滿
+//			List<String> cuPersonsList = new ArrayList<>();
+//			if (!StringUtils.hasText(cuInfo.getPersons())) {
+//				cuInfo.setPersons(stInfo.getStudentId());
+//				courseInfoDao.save(cuInfo);
+//			} else {
+//				for (String item2 : cuInfo.getPersons().split(",")) {
+//
+//					cuPersonsList.add(item2);
+//
+//					// 每門課修課人數不能超過三人
+//					if (cuPersonsList.size() > 3) {
+//						return new StudentInfoResponse("該課程人數已滿");
+//					}
+//				}
+//				cuPersonsList.add(stInfo.getStudentId());
+//				String cuJoinPersons = String.join(",", cuPersonsList);
+//				cuInfo.setPersons(cuJoinPersons);
+//				courseInfoDao.save(cuInfo);
+//			}
+//
+//			// 判斷學生目前的學分，確認可以選課學分才增加
+//			// 先取得目前學生的學分
+//			int totalCredits = 0;
+//			totalCredits = stInfo.getCredits();
+//
+//			// 學生目前的學分加上該選課的學分
+//			totalCredits += cuInfo.getCredits();
+//			// 總學分不能超過10
+//			if (totalCredits > 10) {
+//				return new StudentInfoResponse("已超出學分上限");
+//			}
+//			// 總學分沒超過 10 則調整學生的學分
+//			stInfo.setCredits(totalCredits);
+//
+//			stCourseIdList.add(names);
+//			stCourseNameList.add(courseInfoDao.findById(names).get().getCourseName());
+//		}
+//		stInfo.setCourseId(String.join(",", stCourseIdList));
+//		stInfo.setCourseName(String.join(",", stCourseNameList));
+//		studentInfoDao.save(stInfo);
+//		return new StudentInfoResponse(stInfo, "選課成功");
+//	}
 
 //=================================================================================================
 	public CourseInfo getCourseInfo(String id) {

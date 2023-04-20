@@ -6,12 +6,12 @@ import javax.persistence.Id;
 import javax.persistence.Table;
 
 @Entity
-@Table(name = "studentinfo")
+@Table(name = "student_info")
 public class StudentInfo {
 
 	// 學生ID
 	@Id
-	@Column(name = "studentid")
+	@Column(name = "student_id")
 	private String studentId;
 	
 	// 學生姓名
@@ -23,11 +23,11 @@ public class StudentInfo {
 	private int credits;
 	
 	// 學生已選課ID
-	@Column(name = "courseid")
+	@Column(name = "course_id")
 	private String courseId;
 	
 	// 學生已選課名稱
-	@Column(name = "coursename")
+	@Column(name = "course_name")
 	private String courseName;
 	
 	public StudentInfo() {

@@ -24,17 +24,23 @@ public class CourseInfoServiceImpl implements CourseInfoService {
 //=================================================================================================	
 	@Override
 	public CourseInfoResponse createCourse(CourseInfoRequest courseInfoRequest) {
+		// 預新增的課程資料，可新增多種課程
 		List<CourseInfo> courseList = courseInfoRequest.getCourseInfoList();
+		// 逐一取出判斷
 		for (CourseInfo item : courseList) {
+			// 判斷預新增課程是否已開課
 			if (courseInfoDao.existsById(item.getCourseId())) {
 				return new CourseInfoResponse("已開課");
 			}
+			// ID與課程名稱不能為空
 			if (!StringUtils.hasText(item.getCourseId()) || !StringUtils.hasText(item.getCourseName())) {
 				return new CourseInfoResponse("格式錯誤");
 			}
+			// 課程學分要填
 			if (!StringUtils.hasText(item.getCredits().toString())) {
 				return new CourseInfoResponse("要填幾學分");
 			}
+			// 上課是星期幾以及幾點上下課要填
 			if (!StringUtils.hasText(item.getDay()) || !StringUtils.hasText(item.getCourseStartTime())
 					|| !StringUtils.hasText(item.getCourseEndTime())) {
 				return new CourseInfoResponse("開課時間要填");
@@ -47,10 +53,15 @@ public class CourseInfoServiceImpl implements CourseInfoService {
 //=================================================================================================
 	@Override
 	public CourseInfoResponse deleteCourse(CourseInfoRequest courseInfoRequest) {
+		// 找到預刪除的課程ID
 		String id = courseInfoRequest.getCourseId();
+		
+		// DB要有該課程資料才動作
 		if (courseInfoDao.existsById(id)) {
 			Optional<CourseInfo> deleteOp = courseInfoDao.findById(id);
 			CourseInfo delete = deleteOp.get();
+			
+			// 若還有人選課則不能刪除
 			if(StringUtils.hasText(delete.getPersons()) ) {
 				return  new CourseInfoResponse("還有人要修，白癡!!!");
 			}
@@ -75,11 +86,45 @@ public class CourseInfoServiceImpl implements CourseInfoService {
 
 //=================================================================================================
 	@Override
-	public CourseInfoResponse editCredits(String id,int credits) {
+	public CourseInfoResponse editCredits(CourseInfoRequest courseInfoRequest, String id) {
+		// 預變更的資料
+		CourseInfo changeCourse = courseInfoRequest.getCourseInfo();
+		if(!StringUtils.hasText(id) ) {
+			return new CourseInfoResponse("要填ID");
+		}
+		if(!courseInfoDao.existsById(id)) {
+			return new CourseInfoResponse("沒有該課程");
+		}
+		// 要被修改的課程資料
 		Optional <CourseInfo> op = courseInfoDao.findById(id);
 		CourseInfo cuInfo = op.get();
-		cuInfo.setCredits(credits);
+		// 預修正的資料
+		// 若有填預修改的相關資料，便更動
+		if(!StringUtils.hasText(changeCourse.getCourseId())) {
+			cuInfo.setCourseId(changeCourse.getCourseId());
+		}
+		
+		if(!StringUtils.hasText(changeCourse.getCourseName())) {
+			cuInfo.setCourseName(changeCourse.getCourseName());
+		}
+		
+		if(!StringUtils.hasText(changeCourse.getCourseStartTime())) {
+			cuInfo.setCourseStartTime(changeCourse.getCourseStartTime());
+		}
+		
+		if(!StringUtils.hasText(changeCourse.getCourseEndTime())) {
+			cuInfo.setCourseEndTime(changeCourse.getCourseEndTime());
+		}
+		
+		if(!StringUtils.hasText(changeCourse.getDay())) {
+			cuInfo.setDay(changeCourse.getDay());
+		}
+		
+		if(!StringUtils.hasText(changeCourse.getCredits().toString())) {
+			cuInfo.setCredits(changeCourse.getCredits());
+		}
+		// 都沒問題就儲存
 		courseInfoDao.save(cuInfo);
-		return new CourseInfoResponse("學分修改成功");
+		return new CourseInfoResponse("課程資料修改成功");
 	}
 }

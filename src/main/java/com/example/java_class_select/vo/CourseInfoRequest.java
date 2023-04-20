@@ -17,8 +17,10 @@ public class CourseInfoRequest {
 	
 	@JsonProperty("courseid")
 	private String courseId;
+	
 	@JsonProperty("coursename")
 	private String courseName;
+	
 	@JsonProperty("credits")
 	private Integer credits;
 

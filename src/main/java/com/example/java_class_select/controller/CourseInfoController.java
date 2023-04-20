@@ -20,28 +20,33 @@ public class CourseInfoController {
 	@Autowired
 	private CourseInfoService courseService;
 	
+	// 接受 Postman 以及連接實作的新建課程資料功能
 	@RequestMapping(value = "create_Course" , method = RequestMethod.POST)
 	public CourseInfoResponse createCourse (@RequestBody CourseInfoRequest courseInfoRequest) {
 		return courseService.createCourse(courseInfoRequest);
 	}
 	
+	// 接受 Postman 以及連接實作的刪除課程資料功能
 	@PostMapping("delete_Course")
 	public CourseInfoResponse deleteCourse (@RequestBody CourseInfoRequest courseInfoRequest) {
 		return courseService.deleteCourse(courseInfoRequest);
 	}
 	
+	// 接受 Postman 以及連接實作的使用課程ID搜尋課程功能
 	@PostMapping("course_Serech_ById")
 	public List<CourseInfo>  courseSerechById(@RequestBody CourseInfoRequest request){
 		return courseService.courseSerechById(request.getCourseId());
 	}
 	
+	// 接受 Postman 以及連接實作的使用課程名稱搜尋課程功能
 	@PostMapping("course_Serech_ByName")
 	public List<CourseInfo>  courseSerechByName(@RequestBody CourseInfoRequest request){
 		return courseService.courseSerechByName(request.getCourseName());
 	}
 	
+	// 接受 Postman 以及連接實作的修改課程資料功能
 	@PostMapping("edit_Credits")
 	public CourseInfoResponse editCredits(@RequestBody CourseInfoRequest request) {
-		return courseService.editCredits(request.getCourseId(), request.getCredits());
+		return courseService.editCredits(request, request.getCourseId());
 	}
 }

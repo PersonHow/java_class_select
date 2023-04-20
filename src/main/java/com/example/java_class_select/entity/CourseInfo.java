@@ -8,29 +8,36 @@ import javax.persistence.Table;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 @Entity
-@Table(name = "courseinfo")
+@Table(name = "course_info")
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class CourseInfo {
 
+	// 課程ID
 	@Id
-	@Column(name = "courseid")
+	@Column(name = "course_id")
 	private String courseId;
 	
-	@Column(name = "coursename")
+	// 課程名稱
+	@Column(name = "course_name")
 	private String courseName;
 	
+	// 星期幾有課
 	@Column(name = "day")
 	private String day;
 	
-	@Column(name = "starttime")
+	// 幾點上課
+	@Column(name = "start_time")
 	private String courseStartTime;
 	
-	@Column(name = "endtime")
+	// 幾點下課
+	@Column(name = "end_time")
 	private String courseEndTime;
 	
+	// 多少學分
 	@Column(name = "credits")
 	private Integer credits;
 	
+	// 修課名單
 	@Column(name = "persons")
 	private String persons;
 

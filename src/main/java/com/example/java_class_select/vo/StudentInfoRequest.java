@@ -22,7 +22,10 @@ public class StudentInfoRequest {
 	private String courseId;
 	@JsonProperty("studentid")
 	private String studentId;
-
+	
+	@JsonProperty("type")
+	private String type;
+	
 	public StudentInfoRequest() {
 
 	}
@@ -65,6 +68,14 @@ public class StudentInfoRequest {
 
 	public void setCourseIdList(List<String> courseIdList) {
 		this.courseIdList = courseIdList;
+	}
+
+	public String getType() {
+		return type;
+	}
+
+	public void setType(String type) {
+		this.type = type;
 	}
 
 	

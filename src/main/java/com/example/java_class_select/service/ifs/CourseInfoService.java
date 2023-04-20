@@ -8,13 +8,18 @@ import com.example.java_class_select.vo.CourseInfoResponse;
 
 public interface CourseInfoService {
 
+	// 新建課程資料
 	public CourseInfoResponse createCourse (CourseInfoRequest courseInfoRequest); 
 	
+	// 刪除課程資料
 	public CourseInfoResponse deleteCourse (CourseInfoRequest courseInfoRequest); 
 	
+	// 使用課程ID搜尋課程
 	public List<CourseInfo>  courseSerechById(String id);
 	
+	// 使用課程名稱搜尋課程
 	public List<CourseInfo>  courseSerechByName(String name);
 	
-	public CourseInfoResponse editCredits(String id,int credits);
+	// 課程資料的修改
+	public CourseInfoResponse editCredits(CourseInfoRequest courseInfoRequest, String id);
 }
