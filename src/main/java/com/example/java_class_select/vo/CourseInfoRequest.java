@@ -23,6 +23,9 @@ public class CourseInfoRequest {
 	
 	@JsonProperty("credits")
 	private Integer credits;
+	
+	@JsonProperty("message")
+	private String message;
 
 	public CourseInfoRequest() {
 
@@ -73,6 +76,16 @@ public class CourseInfoRequest {
 
 	public void setCredits(Integer credits) {
 		this.credits = credits;
+	}
+
+
+	public String getMessage() {
+		return message;
+	}
+
+
+	public void setMessage(String message) {
+		this.message = message;
 	}
 
 	

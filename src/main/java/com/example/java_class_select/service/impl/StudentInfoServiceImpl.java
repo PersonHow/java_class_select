@@ -342,7 +342,7 @@ public class StudentInfoServiceImpl implements StudentInfoService {
 							cuPersonsList.add(item2);
 
 							// 每門課修課人數不能超過三人
-							if (cuPersonsList.size() > 3) {
+							if (cuPersonsList.size() >= 3) {
 								return new StudentInfoResponse("該課程人數已滿");
 							}
 						}

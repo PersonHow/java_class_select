@@ -22,4 +22,6 @@ public interface CourseInfoService {
 	
 	// 課程資料的修改
 	public CourseInfoResponse editCredits(CourseInfoRequest courseInfoRequest, String id);
+	
+	public List<CourseInfo> showAllCourse(String text);
 }

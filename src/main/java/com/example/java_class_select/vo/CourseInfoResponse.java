@@ -27,6 +27,11 @@ public class CourseInfoResponse {
 		this.message = message;
 	}
 	
+	public CourseInfoResponse(CourseInfo courseInfo, String message) {
+		this.courseInfo = courseInfo;
+		this.message = message;
+	}
+	
 	public CourseInfoResponse(List<CourseInfo> courseInfoList,String message) {
 		this.courseInfoList = courseInfoList;
 		this.message = message;
